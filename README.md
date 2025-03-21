@@ -104,4 +104,15 @@ The codebase follows Go's documentation conventions:
 
 ## License
 
-This project is open source and available under the MIT License.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+### MIT License Summary
+
+- ✔️ Commercial use
+- ✔️ Modification
+- ✔️ Distribution
+- ✔️ Private use
+- ❗ Must include copy of license and copyright notice
+- ❌ No liability or warranty
+
+For more information about the MIT License, visit [Choose a License](https://choosealicense.com/licenses/mit/).
