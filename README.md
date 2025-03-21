@@ -27,7 +27,3 @@ The program provides a simple menu interface with the following options:
 2. List tasks - Display all tasks with their completion status
 3. Mark as completed - Mark a specific task as completed
 4. Exit - Close the program
-
-## License
-
-MIT License
