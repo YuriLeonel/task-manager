@@ -1,3 +1,3 @@
-module github.com/yurileonel/task-manager
+module github.com/YuriLeonel/task-manager
 
-go 1.22.0
+go 1.21
