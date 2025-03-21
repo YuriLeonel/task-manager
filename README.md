@@ -1,29 +1,107 @@
 # Task Manager
 
-A simple command-line task manager written in Go. This application allows you to manage your tasks through a terminal interface.
+A command-line task manager written in Go that helps you manage your daily tasks through a terminal interface.
+
+## Project Structure
+
+```
+.
+├── cmd/
+│   └── task-manager/     # Application entry point
+│       └── main.go
+├── internal/
+│   └── task/            # Internal package for task management
+│       ├── service.go   # Business logic
+│       └── cli.go       # CLI interface
+├── pkg/
+│   └── models/          # Shared models
+│       └── task.go      # Task entity definition
+└── go.mod              # Go module definition
+```
 
 ## Features
 
-- Add new tasks
-- List all tasks
+- Add new tasks with descriptions
+- List all tasks with their completion status
 - Mark tasks as completed
-- Simple and intuitive interface
+- Simple and intuitive command-line interface
+- Error handling for invalid inputs
 
-## How to Run
+## Requirements
 
-1. Make sure you have Go installed on your system
-2. Clone this repository
-3. Navigate to the project directory
-4. Run the program:
+- Go 1.21 or higher
+
+## Installation
+
+1. Clone the repository:
+
    ```bash
-   go run main.go
+   git clone https://github.com/YuriLeonel/task-manager.git
+   ```
+
+2. Navigate to the project directory:
+
+   ```bash
+   cd task-manager
+   ```
+
+3. Build the application:
+   ```bash
+   go build ./cmd/task-manager
+   ```
+
+## Running the Application
+
+You can run the application in two ways:
+
+1. Using `go run`:
+
+   ```bash
+   go run ./cmd/task-manager
+   ```
+
+2. Using the built binary (after building):
+   ```bash
+   ./task-manager
    ```
 
 ## Usage
 
-The program provides a simple menu interface with the following options:
+The application provides an interactive menu with the following options:
 
-1. Add task - Add a new task to your list
-2. List tasks - Display all tasks with their completion status
-3. Mark as completed - Mark a specific task as completed
-4. Exit - Close the program
+1. **Add task**: Add a new task to your list
+
+   - Enter a description for your task
+
+2. **List tasks**: Display all tasks
+
+   - Shows tasks with their completion status ([ ] for pending, [X] for completed)
+
+3. **Mark as completed**: Mark a task as completed
+
+   - Select a task by its number
+
+4. **Exit**: Close the application
+
+## Documentation
+
+The codebase follows Go's documentation conventions:
+
+- Package documentation is available in each package's main file
+- Functions and types are documented using godoc format
+- To view the documentation locally, run:
+  ```bash
+  go doc ./...
+  ```
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is open source and available under the MIT License.
