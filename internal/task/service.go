@@ -1,64 +1,78 @@
-// Package task provides the core business logic and CLI interface for task management.
-// It implements the task service layer that handles all task operations and the
-// command-line interface that interacts with users.
+// Package task provides the business logic for task management.
+// It includes security measures, validation, and thread-safe operations.
 package task
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/YuriLeonel/task-manager/internal/storage"
 	"github.com/YuriLeonel/task-manager/pkg/models"
 )
 
 // Service handles the business logic for task management.
-// It maintains a slice of tasks and provides methods to
-// add, list, and modify tasks in the collection.
+// It ensures thread-safe operations and proper validation.
 type Service struct {
-	tasks []*models.Task
+	storage storage.Storage
 }
 
-// NewService creates a new task service instance.
-// It initializes an empty task collection and returns
-// a pointer to the new Service.
-func NewService() *Service {
+// NewService creates a new task service instance with secure storage.
+func NewService(storage storage.Storage) *Service {
 	return &Service{
-		tasks: make([]*models.Task, 0),
+		storage: storage,
 	}
 }
 
-// AddTask creates and adds a new task with the given description to the service.
-// It returns an error if the description is empty.
-// The task is automatically initialized as not completed.
-func (service *Service) AddTask(description string) error {
-	if description == "" {
-		return fmt.Errorf("task description cannot be empty")
-	}
-
+// AddTask creates a new task with the given description.
+func (s *Service) AddTask(description string) error {
 	task := models.NewTask(description)
-	service.tasks = append(service.tasks, task)
-	return nil
+	return s.storage.SaveTask(task)
 }
 
-// ListTasks returns all tasks currently managed by the service.
-// The returned slice contains pointers to Task objects in the order
-// they were added.
-func (service *Service) ListTasks() []*models.Task {
-	return service.tasks
+// ListTasks returns all tasks.
+func (s *Service) ListTasks() ([]*models.Task, error) {
+	return s.storage.GetAllTasks()
 }
 
-// MarkTaskAsCompleted marks the task at the specified index as completed.
-// It returns an error if the index is out of bounds.
-// Index is zero-based, meaning the first task is at index 0.
-func (service *Service) MarkTaskAsCompleted(index int) error {
-	if index < 0 || index >= len(service.tasks) {
-		return fmt.Errorf("invalid task index: %d", index)
+// MarkAsCompleted marks a task as completed by its ID.
+func (s *Service) MarkAsCompleted(id string) error {
+	task, err := s.storage.GetTask(id)
+	if err != nil {
+		return fmt.Errorf("failed to get task: %w", err)
 	}
 
-	service.tasks[index].MarkAsCompleted()
-	return nil
+	task.MarkAsCompleted()
+	return s.storage.UpdateTask(task)
 }
 
-// GetTaskCount returns the total number of tasks in the service.
-// This count includes both completed and incomplete tasks.
-func (service *Service) GetTaskCount() int {
-	return len(service.tasks)
+// SetPriority updates a task's priority.
+func (s *Service) SetPriority(id string, priority models.Priority) error {
+	task, err := s.storage.GetTask(id)
+	if err != nil {
+		return fmt.Errorf("failed to get task: %w", err)
+	}
+
+	task.SetPriority(priority)
+	return s.storage.UpdateTask(task)
+}
+
+// SetDueDate updates a task's due date.
+func (s *Service) SetDueDate(id string, dueDate time.Time) error {
+	task, err := s.storage.GetTask(id)
+	if err != nil {
+		return fmt.Errorf("failed to get task: %w", err)
+	}
+
+	task.SetDueDate(dueDate)
+	return s.storage.UpdateTask(task)
+}
+
+// DeleteTask removes a task by its ID.
+func (s *Service) DeleteTask(id string) error {
+	return s.storage.DeleteTask(id)
+}
+
+// GetTask retrieves a task by its ID.
+func (s *Service) GetTask(id string) (*models.Task, error) {
+	return s.storage.GetTask(id)
 }

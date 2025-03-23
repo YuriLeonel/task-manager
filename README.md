@@ -1,6 +1,6 @@
 # Task Manager
 
-A command-line task manager written in Go that helps you manage your daily tasks through a terminal interface.
+A secure and efficient command-line task manager written in Go that helps you manage your daily tasks through a terminal interface. The project follows Go best practices for documentation, security, and code organization.
 
 ## Project Structure
 
@@ -10,12 +10,15 @@ A command-line task manager written in Go that helps you manage your daily tasks
 │   └── task-manager/     # Application entry point
 │       └── main.go
 ├── internal/
+│   ├── storage/         # Storage implementations
+│   │   └── storage.go   # JSON file storage with security features
 │   └── task/            # Internal package for task management
 │       ├── service.go   # Business logic
 │       └── cli.go       # CLI interface
 ├── pkg/
 │   └── models/          # Shared models
 │       └── task.go      # Task entity definition
+├── LICENSE              # MIT License
 └── go.mod              # Go module definition
 ```
 
@@ -25,7 +28,22 @@ A command-line task manager written in Go that helps you manage your daily tasks
 - List all tasks with their completion status
 - Mark tasks as completed
 - Simple and intuitive command-line interface
-- Error handling for invalid inputs
+- Secure file storage with atomic operations
+- Thread-safe operations
+- Resource limits and validation
+- Comprehensive error handling
+- Data integrity protection
+
+## Security Features
+
+- Secure file permissions (0600 for files, 0700 for directories)
+- Path traversal protection
+- Resource limits (max 10,000 tasks, 10MB file size)
+- Atomic file operations
+- Input validation
+- Thread-safe operations
+- Secure temporary file handling
+- Data integrity checks
 
 ## Requirements
 
@@ -72,16 +90,29 @@ The application provides an interactive menu with the following options:
 1. **Add task**: Add a new task to your list
 
    - Enter a description for your task
+   - Task is validated and stored securely
 
 2. **List tasks**: Display all tasks
 
    - Shows tasks with their completion status ([ ] for pending, [X] for completed)
+   - Tasks are displayed with their creation and update times
 
 3. **Mark as completed**: Mark a task as completed
 
    - Select a task by its number
+   - Updates are performed atomically
 
 4. **Exit**: Close the application
+   - Ensures all data is properly saved
+
+## Data Storage
+
+Tasks are stored in a JSON file located in the user's home directory:
+
+- Path: `~/.task-manager/tasks.json`
+- Secure file permissions
+- Atomic write operations
+- Automatic backup handling
 
 ## Documentation
 
@@ -89,6 +120,8 @@ The codebase follows Go's documentation conventions:
 
 - Package documentation is available in each package's main file
 - Functions and types are documented using godoc format
+- Security considerations are documented
+- Error handling is clearly documented
 - To view the documentation locally, run:
   ```bash
   go doc ./...
