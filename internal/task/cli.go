@@ -114,33 +114,30 @@ func (cli *CLI) handleAddTask() error {
 	return nil
 }
 
-// handleListTasks displays all tasks in the list.
-// If there are no tasks, it shows an appropriate message.
-// For each task, it shows the completion status ([X] for completed,
-// [ ] for pending) followed by the task number and description.
+// handleListTasks displays all tasks with their status and details.
 func (cli *CLI) handleListTasks() error {
 	tasks, err := cli.service.ListTasks()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get tasks: %w", err)
 	}
 
 	if len(tasks) == 0 {
-		fmt.Println("No tasks found.")
+		fmt.Println("\nNo tasks found.")
 		return nil
 	}
 
 	fmt.Println("\nTasks:")
 	for i, task := range tasks {
-		status := " "
+		status := "[ ]"
 		if task.Completed {
-			status = "X"
+			status = "[X]"
 		}
 		priority := getPriorityString(task.Priority)
-		dueDate := ""
-		if !task.DueDate.IsZero() {
+		dueDate := "No due date"
+		if task.DueDate != nil {
 			dueDate = task.DueDate.Format("2006-01-02")
 		}
-		fmt.Printf("%d. [%s] %s (Priority: %s, Due: %s)\n", i+1, status, task.Description, priority, dueDate)
+		fmt.Printf("%d. %s %s (Priority: %s, Due: %s)\n", i+1, status, task.Description, priority, dueDate)
 	}
 	return nil
 }
@@ -330,7 +327,7 @@ func (cli *CLI) handleDeleteTask() error {
 	return nil
 }
 
-// getPriorityString returns a string representation of the priority level.
+// getPriorityString returns a string representation of the task priority.
 func getPriorityString(priority models.Priority) string {
 	switch priority {
 	case models.Low:

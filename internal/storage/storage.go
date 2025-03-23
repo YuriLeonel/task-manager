@@ -25,9 +25,6 @@ import (
 )
 
 const (
-	// maxTasks is the maximum number of tasks allowed in storage to prevent
-	// resource exhaustion attacks.
-	maxTasks = 10000
 	// maxFileSize is the maximum allowed file size in bytes (10MB) to prevent
 	// disk space exhaustion attacks.
 	maxFileSize = 10 * 1024 * 1024
@@ -67,10 +64,12 @@ type JSONFileStorage struct {
 	tasksFilePath string
 	// mu provides thread safety for all file operations.
 	mu sync.RWMutex
+	// maxTasks is the maximum number of tasks allowed in storage.
+	maxTasks int
 }
 
 // NewJSONFileStorage creates a new JSON file storage instance.
-func NewJSONFileStorage(tasksFilePath string) (*JSONFileStorage, error) {
+func NewJSONFileStorage(tasksFilePath string, maxTasks int) (*JSONFileStorage, error) {
 	// Validate and sanitize the filepath
 	absolutePath, err := filepath.Abs(tasksFilePath)
 	if err != nil {
@@ -82,8 +81,14 @@ func NewJSONFileStorage(tasksFilePath string) (*JSONFileStorage, error) {
 		return nil, err
 	}
 
+	// Validate maxTasks
+	if maxTasks <= 0 {
+		return nil, fmt.Errorf("maxTasks must be greater than 0")
+	}
+
 	return &JSONFileStorage{
 		tasksFilePath: absolutePath,
+		maxTasks:      maxTasks,
 	}, nil
 }
 
@@ -144,8 +149,8 @@ func (s *JSONFileStorage) SaveTask(newTask *models.Task) error {
 	}
 
 	// Check task limit
-	if len(existingTasks) >= maxTasks {
-		return fmt.Errorf("maximum number of tasks (%d) reached", maxTasks)
+	if len(existingTasks) >= s.maxTasks {
+		return fmt.Errorf("maximum number of tasks (%d) reached", s.maxTasks)
 	}
 
 	// Check for duplicate ID

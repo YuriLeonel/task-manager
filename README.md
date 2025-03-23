@@ -8,7 +8,7 @@ A secure and efficient command-line task manager written in Go that helps you ma
 .
 ├── cmd/
 │   └── task-manager/     # Application entry point
-│       └── main.go
+│       └── main.go       # Main application with CLI flags
 ├── internal/
 │   ├── storage/         # Storage implementations
 │   │   └── storage.go   # JSON file storage with security features
@@ -27,6 +27,14 @@ A secure and efficient command-line task manager written in Go that helps you ma
 - Add new tasks with descriptions
 - List all tasks with their completion status
 - Mark tasks as completed
+- Set task priority (Low, Medium, High)
+- Set task due dates
+- Delete tasks
+- Custom data directory support
+- Automatic task backup
+- Configurable maximum tasks limit
+- Debug mode for detailed logging
+- Version information display
 - Simple and intuitive command-line interface
 - Secure file storage with atomic operations
 - Thread-safe operations
@@ -38,7 +46,7 @@ A secure and efficient command-line task manager written in Go that helps you ma
 
 - Secure file permissions (0600 for files, 0700 for directories)
 - Path traversal protection
-- Resource limits (max 10,000 tasks, 10MB file size)
+- Resource limits (configurable max tasks, 10MB file size)
 - Atomic file operations
 - Input validation
 - Thread-safe operations
@@ -70,20 +78,29 @@ A secure and efficient command-line task manager written in Go that helps you ma
 
 ## Running the Application
 
-You can run the application in two ways:
+You can run the application with various command-line options:
 
-1. Using `go run`:
+```bash
+# Show help and available options
+task-manager --help
 
-   ```bash
-   go run ./cmd/task-manager
-   ```
+# Show version information
+task-manager --version
 
-2. Using the built binary (after building):
-   ```bash
-   ./task-manager
-   ```
+# Use custom data directory
+task-manager --data-dir ~/.my-tasks
 
-## Usage
+# Disable automatic backup
+task-manager --backup=false
+
+# Set maximum number of tasks
+task-manager --max-tasks 5000
+
+# Enable debug mode for detailed logging
+task-manager --debug
+```
+
+## Interactive Menu
 
 The application provides an interactive menu with the following options:
 
@@ -95,6 +112,7 @@ The application provides an interactive menu with the following options:
 2. **List tasks**: Display all tasks
 
    - Shows tasks with their completion status ([ ] for pending, [X] for completed)
+   - Displays priority level and due date
    - Tasks are displayed with their creation and update times
 
 3. **Mark as completed**: Mark a task as completed
@@ -102,17 +120,33 @@ The application provides an interactive menu with the following options:
    - Select a task by its number
    - Updates are performed atomically
 
-4. **Exit**: Close the application
+4. **Set task priority**: Update a task's priority level
+
+   - Choose between Low, Medium, or High
+   - Changes are saved immediately
+
+5. **Set task due date**: Add or update a task's due date
+
+   - Enter date in YYYY-MM-DD format
+   - Due dates are displayed in the task list
+
+6. **Delete task**: Remove a task from the list
+
+   - Select a task by its number
+   - Deletion is performed atomically
+
+7. **Exit**: Close the application
    - Ensures all data is properly saved
 
 ## Data Storage
 
-Tasks are stored in a JSON file located in the user's home directory:
+Tasks are stored in a JSON file located in the user's home directory by default:
 
-- Path: `~/.task-manager/tasks.json`
+- Default path: `~/.task-manager/tasks.json`
+- Custom path: Configurable via `--data-dir` option
 - Secure file permissions
 - Atomic write operations
-- Automatic backup handling
+- Automatic backup handling (can be disabled)
 
 ## Documentation
 

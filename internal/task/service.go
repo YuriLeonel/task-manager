@@ -29,7 +29,7 @@ func (s *Service) AddTask(description string) error {
 	return s.storage.SaveTask(task)
 }
 
-// ListTasks returns all tasks.
+// ListTasks returns all tasks from storage.
 func (s *Service) ListTasks() ([]*models.Task, error) {
 	return s.storage.GetAllTasks()
 }
