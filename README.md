@@ -17,8 +17,8 @@ A secure command-line task manager written in Go that helps you manage your task
 - 📊 Track task progress (0-100%)
 - 🔍 Filter tasks by tags
 - 💾 Multiple storage backends (JSON file, in-memory)
-- 🔄 Automatic backups with configurable interval
-- 🛡️ Secure storage with proper error handling
+- 🔄 Automatic backups with configurable interval and directory
+- 🛡️ Secure storage with proper error handling and permissions
 
 ## Getting Started
 
@@ -80,6 +80,7 @@ Examples:
   task-manager --data-dir ~/.my-tasks --backup=false
   task-manager --storage memory --max-tasks 100
   task-manager --backup-interval 30m --max-backups 10
+  task-manager --backup-dir ~/.task-backups
 ```
 
 ### Interactive Interface
@@ -101,6 +102,22 @@ Task Manager Menu:
 11. Exit
 ```
 
+### Backup System
+
+The task manager includes a robust backup system with the following features:
+
+- **Automatic Backups**: By default, backups are created every hour
+- **Custom Backup Directory**: Specify a custom backup location with `--backup-dir`
+- **Backup Rotation**: Automatically maintains the specified number of backups
+- **Secure Storage**: Backups are stored with secure permissions (0600 for files, 0700 for directories)
+- **Graceful Handling**: Creates final backup on application shutdown
+- **Manual Triggers**: Creates backup on critical operations
+
+Default paths:
+
+- Tasks file: `~/.task-manager/tasks.json`
+- Backup directory: `~/.task-manager/backups`
+
 ## Project Structure
 
 ```
@@ -109,12 +126,14 @@ task-manager/
 │   └── task-manager/      # Main application entry point
 ├── internal/              # Private application and library code
 │   ├── storage/           # Storage implementations
-│   └── task/              # Task management business logic
+│   │   ├── backup/       # Backup management system
+│   │   └── ...          # Other storage implementations
+│   └── task/             # Task management business logic
 ├── pkg/                   # Library code that can be used by external applications
-│   └── models/            # Data models
-├── go.mod                 # Go module definition
-├── LICENSE                # MIT License
-└── README.md              # This file
+│   └── models/           # Data models
+├── go.mod                # Go module definition
+├── LICENSE               # MIT License
+└── README.md             # This file
 ```
 
 ## Architecture
@@ -123,9 +142,12 @@ The Task Manager follows a clean architecture with clear separation of concerns:
 
 1. **Models** (`pkg/models`): Core data structures
 2. **Storage** (`internal/storage`): Data persistence layer with multiple implementations
+   - File-based storage with atomic operations
+   - In-memory storage for testing
+   - Backup management system
 3. **Service** (`internal/task`): Business logic layer
 4. **CLI** (`internal/task`): Presentation layer
-5. **Main** (`cmd/task-manager`): Application entry point
+5. **Main** (`cmd/task-manager`): Application entry point and configuration
 
 ## Security Features
 
@@ -137,6 +159,7 @@ The Task Manager follows a clean architecture with clear separation of concerns:
 - Thread-safe operations
 - Secure temporary file handling
 - Data integrity checks
+- Secure backup management
 
 ## Contributing
 

@@ -86,7 +86,7 @@ func main() {
 	case "memory":
 		// Memory storage (ephemeral, for testing)
 		log.Println("Using in-memory storage")
-		storageImpl, err = storage.NewMemoryStorage(*maxTasksFlag)
+		storageImpl, err = storage.NewMemoryStorage(*maxTasksFlag, taskFilePath, *maxBackups)
 		if err != nil {
 			log.Fatalf("Failed to initialize memory storage: %v", err)
 		}
@@ -116,22 +116,27 @@ func main() {
 		// Determine task file path
 		taskFilePath = filepath.Join(dataDir, "tasks.json")
 
+		// Determine backup directory
+		var backupDirectory string
+		if *backupDir != "" {
+			backupDirectory = *backupDir
+		} else {
+			backupDirectory = filepath.Join(dataDir, "backups")
+		}
+
+		// Create backup directory with secure permissions
+		if err := os.MkdirAll(backupDirectory, 0700); err != nil {
+			log.Fatalf("Failed to create backup directory: %v", err)
+		}
+
 		// Initialize file-based storage
-		storageImpl, err = storage.NewJSONFileStorage(taskFilePath, *maxTasksFlag)
+		storageImpl, err = storage.NewJSONFileStorage(taskFilePath, *maxTasksFlag, backupDirectory, *maxBackups)
 		if err != nil {
 			log.Fatalf("Failed to initialize storage: %v", err)
 		}
 
 		// Setup backup system if enabled
 		if *backupFlag {
-			// Determine backup directory
-			var backupDirectory string
-			if *backupDir != "" {
-				backupDirectory = *backupDir
-			} else {
-				backupDirectory = filepath.Join(dataDir, "backups")
-			}
-
 			// Create backup manager
 			backupManager, err = storage.NewBackupManager(
 				taskFilePath,

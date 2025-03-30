@@ -52,6 +52,9 @@ func (s *Service) MarkAsCompleted(id string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get task: %w", err)
 	}
+	if task == nil {
+		return fmt.Errorf("task not found: %s", id)
+	}
 
 	task.MarkAsCompleted()
 	return s.storage.UpdateTask(ctx, task)
@@ -66,6 +69,9 @@ func (s *Service) SetPriority(id string, priority models.Priority) error {
 	if err != nil {
 		return fmt.Errorf("failed to get task: %w", err)
 	}
+	if task == nil {
+		return fmt.Errorf("task not found: %s", id)
+	}
 
 	task.SetPriority(priority)
 	return s.storage.UpdateTask(ctx, task)
@@ -79,6 +85,9 @@ func (s *Service) SetDueDate(id string, dueDate time.Time) error {
 	task, err := s.storage.GetTask(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to get task: %w", err)
+	}
+	if task == nil {
+		return fmt.Errorf("task not found: %s", id)
 	}
 
 	task.SetDueDate(dueDate)
@@ -98,6 +107,9 @@ func (s *Service) AddTag(id string, tag string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get task: %w", err)
 	}
+	if task == nil {
+		return fmt.Errorf("task not found: %s", id)
+	}
 
 	task.AddTag(tag)
 	return s.storage.UpdateTask(ctx, task)
@@ -116,6 +128,9 @@ func (s *Service) RemoveTag(id string, tag string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get task: %w", err)
 	}
+	if task == nil {
+		return fmt.Errorf("task not found: %s", id)
+	}
 
 	task.RemoveTag(tag)
 	return s.storage.UpdateTask(ctx, task)
@@ -130,6 +145,9 @@ func (s *Service) SetProgress(id string, progress int) error {
 	if err != nil {
 		return fmt.Errorf("failed to get task: %w", err)
 	}
+	if task == nil {
+		return fmt.Errorf("task not found: %s", id)
+	}
 
 	task.SetProgress(progress)
 	return s.storage.UpdateTask(ctx, task)
@@ -139,6 +157,14 @@ func (s *Service) SetProgress(id string, progress int) error {
 func (s *Service) DeleteTask(id string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
+	task, err := s.storage.GetTask(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to get task: %w", err)
+	}
+	if task == nil {
+		return fmt.Errorf("task not found: %s", id)
+	}
 
 	return s.storage.DeleteTask(ctx, id)
 }

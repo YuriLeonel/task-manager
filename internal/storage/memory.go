@@ -2,46 +2,57 @@ package storage
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
+	"github.com/YuriLeonel/task-manager/internal/errors"
+	"github.com/YuriLeonel/task-manager/internal/storage/backup"
 	"github.com/YuriLeonel/task-manager/pkg/models"
+	"github.com/YuriLeonel/task-manager/pkg/utils"
 )
 
-// MemoryStorage implements Storage interface using in-memory structures.
-// It provides thread-safe operations for testing and development purposes.
+// MemoryStorage implements Storage interface using in-memory storage.
+// It provides thread-safe operations for task management.
 type MemoryStorage struct {
-	// tasks is a map of task ID to task
+	// tasks is a map of task ID to task pointer.
 	tasks map[string]*models.Task
-	// mu provides thread safety for all operations
+	// mu provides thread safety for all operations.
 	mu sync.RWMutex
-	// maxTasks is the maximum number of tasks allowed
+	// maxTasks is the maximum number of tasks allowed in storage.
 	maxTasks int
+	// backupManager handles backup operations.
+	backupManager *backup.Manager
 }
 
-// NewMemoryStorage creates a new in-memory storage instance.
-func NewMemoryStorage(maxTasks int) (*MemoryStorage, error) {
+// NewMemoryStorage creates a new memory storage instance.
+func NewMemoryStorage(maxTasks int, backupDir string, maxBackups int) (*MemoryStorage, error) {
 	if maxTasks <= 0 {
-		return nil, fmt.Errorf("maxTasks must be greater than 0")
+		return nil, errors.NewValidationError("maxTasks", "must be greater than 0")
+	}
+
+	// Create backup manager
+	backupManager, err := backup.NewManager(backupDir, maxBackups)
+	if err != nil {
+		return nil, err
 	}
 
 	return &MemoryStorage{
-		tasks:    make(map[string]*models.Task),
-		maxTasks: maxTasks,
+		tasks:         make(map[string]*models.Task),
+		maxTasks:      maxTasks,
+		backupManager: backupManager,
 	}, nil
 }
 
 // validateTask checks if a task is valid before saving.
 func (s *MemoryStorage) validateTask(task *models.Task) error {
 	if task == nil {
-		return fmt.Errorf("task cannot be nil")
+		return errors.NewValidationError("task", "cannot be nil")
 	}
 	if task.ID == "" {
-		return fmt.Errorf("task ID cannot be empty")
+		return errors.NewValidationError("task.id", "cannot be empty")
 	}
 	if task.Description == "" {
-		return fmt.Errorf("task description cannot be empty")
+		return errors.NewValidationError("task.description", "cannot be empty")
 	}
 	if task.CreatedAt.IsZero() {
 		task.CreatedAt = time.Now()
@@ -56,7 +67,7 @@ func (s *MemoryStorage) validateTask(task *models.Task) error {
 func (s *MemoryStorage) SaveTask(ctx context.Context, task *models.Task) error {
 	// Check for context cancellation
 	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("context error: %w", err)
+		return errors.NewPersistenceError(errors.PersistenceErrorCode, "context error", err)
 	}
 
 	if err := s.validateTask(task); err != nil {
@@ -68,101 +79,180 @@ func (s *MemoryStorage) SaveTask(ctx context.Context, task *models.Task) error {
 
 	// Check task limit
 	if len(s.tasks) >= s.maxTasks {
-		return fmt.Errorf("maximum number of tasks (%d) reached", s.maxTasks)
+		return errors.NewTaskError(errors.TaskLimitExceeded, "maximum number of tasks reached", nil)
 	}
 
 	// Check for duplicate ID
 	if _, exists := s.tasks[task.ID]; exists {
-		return fmt.Errorf("task with ID %s already exists", task.ID)
+		return errors.NewTaskError(errors.TaskAlreadyExists, "task with ID already exists", nil)
 	}
 
-	// Add new task (create a deep copy)
-	s.tasks[task.ID] = copyTask(task)
+	// Save task
+	s.tasks[task.ID] = task
 	return nil
 }
 
 // GetTask retrieves a task by its ID.
-func (s *MemoryStorage) GetTask(ctx context.Context, id string) (*models.Task, error) {
+func (s *MemoryStorage) GetTask(ctx context.Context, taskID string) (*models.Task, error) {
 	// Check for context cancellation
 	if err := ctx.Err(); err != nil {
-		return nil, fmt.Errorf("context error: %w", err)
+		return nil, errors.NewPersistenceError(errors.PersistenceErrorCode, "context error", err)
 	}
 
-	if id == "" {
-		return nil, fmt.Errorf("task ID cannot be empty")
+	if taskID == "" {
+		return nil, errors.NewValidationError("taskID", "cannot be empty")
 	}
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	task, exists := s.tasks[id]
+	task, exists := s.tasks[taskID]
 	if !exists {
-		return nil, fmt.Errorf("task not found: %s", id)
+		return nil, errors.NewTaskError(errors.TaskNotFound, "task not found", nil)
 	}
 
 	// Return a copy to prevent external modification
 	return copyTask(task), nil
 }
 
-// GetAllTasks retrieves all tasks.
+// GetAllTasks retrieves all tasks from memory.
 func (s *MemoryStorage) GetAllTasks(ctx context.Context) ([]*models.Task, error) {
 	// Check for context cancellation
 	if err := ctx.Err(); err != nil {
-		return nil, fmt.Errorf("context error: %w", err)
+		return nil, errors.NewPersistenceError(errors.PersistenceErrorCode, "context error", err)
 	}
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	// Create a slice to store all tasks
 	tasks := make([]*models.Task, 0, len(s.tasks))
 	for _, task := range s.tasks {
+		// Add a copy of each task to prevent external modification
 		tasks = append(tasks, copyTask(task))
 	}
 
 	return tasks, nil
 }
 
-// UpdateTask updates an existing task.
-func (s *MemoryStorage) UpdateTask(ctx context.Context, updatedTask *models.Task) error {
+// UpdateTask updates an existing task in memory.
+func (s *MemoryStorage) UpdateTask(ctx context.Context, task *models.Task) error {
 	// Check for context cancellation
 	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("context error: %w", err)
+		return errors.NewPersistenceError(errors.PersistenceErrorCode, "context error", err)
 	}
 
-	if err := s.validateTask(updatedTask); err != nil {
+	if err := s.validateTask(task); err != nil {
 		return err
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, exists := s.tasks[updatedTask.ID]; !exists {
-		return fmt.Errorf("task not found: %s", updatedTask.ID)
+	// Check if task exists
+	if _, exists := s.tasks[task.ID]; !exists {
+		return errors.NewTaskError(errors.TaskNotFound, "task not found", nil)
 	}
 
-	// Update the task (create a deep copy)
-	s.tasks[updatedTask.ID] = copyTask(updatedTask)
+	// Update task
+	s.tasks[task.ID] = task
 	return nil
 }
 
-// DeleteTask removes a task by its ID.
-func (s *MemoryStorage) DeleteTask(ctx context.Context, id string) error {
+// DeleteTask removes a task from memory.
+func (s *MemoryStorage) DeleteTask(ctx context.Context, taskID string) error {
 	// Check for context cancellation
 	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("context error: %w", err)
+		return errors.NewPersistenceError(errors.PersistenceErrorCode, "context error", err)
 	}
 
-	if id == "" {
-		return fmt.Errorf("task ID cannot be empty")
+	if taskID == "" {
+		return errors.NewValidationError("taskID", "cannot be empty")
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, exists := s.tasks[id]; !exists {
-		return fmt.Errorf("task not found: %s", id)
+	// Check if task exists
+	if _, exists := s.tasks[taskID]; !exists {
+		return errors.NewTaskError(errors.TaskNotFound, "task not found", nil)
 	}
 
-	delete(s.tasks, id)
+	// Delete task
+	delete(s.tasks, taskID)
 	return nil
+}
+
+// CreateBackup creates a backup of the current tasks.
+func (s *MemoryStorage) CreateBackup(ctx context.Context) error {
+	// Check for context cancellation
+	if err := ctx.Err(); err != nil {
+		return errors.NewPersistenceError(errors.PersistenceErrorCode, "context error", err)
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Convert tasks map to slice
+	tasks := make([]*models.Task, 0, len(s.tasks))
+	for _, task := range s.tasks {
+		tasks = append(tasks, utils.CopyTask(task))
+	}
+
+	// Create backup
+	return s.backupManager.CreateBackup(ctx, tasks)
+}
+
+// RestoreBackup restores tasks from a backup.
+func (s *MemoryStorage) RestoreBackup(ctx context.Context, backupID string) error {
+	// Check for context cancellation
+	if err := ctx.Err(); err != nil {
+		return errors.NewPersistenceError(errors.PersistenceErrorCode, "context error", err)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Restore tasks from backup
+	tasks, err := s.backupManager.RestoreBackup(ctx, backupID)
+	if err != nil {
+		return err
+	}
+
+	// Validate restored tasks
+	for _, task := range tasks {
+		if err := s.validateTask(task); err != nil {
+			return err
+		}
+	}
+
+	// Clear existing tasks
+	s.tasks = make(map[string]*models.Task)
+
+	// Add restored tasks
+	for _, task := range tasks {
+		s.tasks[task.ID] = task
+	}
+
+	return nil
+}
+
+// ListBackups lists all available backups.
+func (s *MemoryStorage) ListBackups(ctx context.Context) ([]string, error) {
+	// Check for context cancellation
+	if err := ctx.Err(); err != nil {
+		return nil, errors.NewPersistenceError(errors.PersistenceErrorCode, "context error", err)
+	}
+
+	return s.backupManager.ListBackups(ctx)
+}
+
+// DeleteBackup deletes a backup.
+func (s *MemoryStorage) DeleteBackup(ctx context.Context, backupID string) error {
+	// Check for context cancellation
+	if err := ctx.Err(); err != nil {
+		return errors.NewPersistenceError(errors.PersistenceErrorCode, "context error", err)
+	}
+
+	return s.backupManager.DeleteBackup(ctx, backupID)
 }

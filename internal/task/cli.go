@@ -5,6 +5,7 @@ package task
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ import (
 type CLI struct {
 	service *Service
 	reader  *bufio.Reader
+	writer  io.Writer
 }
 
 // NewCLI creates a new CLI instance with secure service integration.
@@ -25,6 +27,7 @@ func NewCLI(service *Service) *CLI {
 	return &CLI{
 		service: service,
 		reader:  bufio.NewReader(os.Stdin),
+		writer:  os.Stdout,
 	}
 }
 
@@ -43,48 +46,48 @@ func (cli *CLI) Run() error {
 		switch choice {
 		case "1":
 			if err := cli.handleAddTask(); err != nil {
-				fmt.Printf("Error: %v\n", err)
+				fmt.Fprintf(cli.writer, "Error: %v\n", err)
 			}
 		case "2":
 			if err := cli.handleListTasks(); err != nil {
-				fmt.Printf("Error: %v\n", err)
+				fmt.Fprintf(cli.writer, "Error: %v\n", err)
 			}
 		case "3":
 			if err := cli.handleMarkAsCompleted(); err != nil {
-				fmt.Printf("Error: %v\n", err)
+				fmt.Fprintf(cli.writer, "Error: %v\n", err)
 			}
 		case "4":
 			if err := cli.handleSetPriority(); err != nil {
-				fmt.Printf("Error: %v\n", err)
+				fmt.Fprintf(cli.writer, "Error: %v\n", err)
 			}
 		case "5":
 			if err := cli.handleSetDueDate(); err != nil {
-				fmt.Printf("Error: %v\n", err)
+				fmt.Fprintf(cli.writer, "Error: %v\n", err)
 			}
 		case "6":
 			if err := cli.handleDeleteTask(); err != nil {
-				fmt.Printf("Error: %v\n", err)
+				fmt.Fprintf(cli.writer, "Error: %v\n", err)
 			}
 		case "7":
 			if err := cli.handleAddTag(); err != nil {
-				fmt.Printf("Error: %v\n", err)
+				fmt.Fprintf(cli.writer, "Error: %v\n", err)
 			}
 		case "8":
 			if err := cli.handleRemoveTag(); err != nil {
-				fmt.Printf("Error: %v\n", err)
+				fmt.Fprintf(cli.writer, "Error: %v\n", err)
 			}
 		case "9":
 			if err := cli.handleSetProgress(); err != nil {
-				fmt.Printf("Error: %v\n", err)
+				fmt.Fprintf(cli.writer, "Error: %v\n", err)
 			}
 		case "10":
 			if err := cli.handleListTasksByTag(); err != nil {
-				fmt.Printf("Error: %v\n", err)
+				fmt.Fprintf(cli.writer, "Error: %v\n", err)
 			}
 		case "11":
 			return nil
 		default:
-			fmt.Println("Invalid choice. Please try again.")
+			fmt.Fprintf(cli.writer, "Invalid choice. Please try again.\n")
 		}
 	}
 }
@@ -92,24 +95,24 @@ func (cli *CLI) Run() error {
 // displayMenu shows the available options to the user.
 // It shows all available commands and prompts for user input.
 func (cli *CLI) displayMenu() {
-	fmt.Println("\nTask Manager Menu:")
-	fmt.Println("1. Add task")
-	fmt.Println("2. List tasks")
-	fmt.Println("3. Mark task as completed")
-	fmt.Println("4. Set task priority")
-	fmt.Println("5. Set task due date")
-	fmt.Println("6. Delete task")
-	fmt.Println("7. Add tag to task")
-	fmt.Println("8. Remove tag from task")
-	fmt.Println("9. Set task progress")
-	fmt.Println("10. List tasks by tag")
-	fmt.Println("11. Exit")
+	fmt.Fprintln(cli.writer, "\nTask Manager Menu:")
+	fmt.Fprintln(cli.writer, "1. Add task")
+	fmt.Fprintln(cli.writer, "2. List tasks")
+	fmt.Fprintln(cli.writer, "3. Mark task as completed")
+	fmt.Fprintln(cli.writer, "4. Set task priority")
+	fmt.Fprintln(cli.writer, "5. Set task due date")
+	fmt.Fprintln(cli.writer, "6. Delete task")
+	fmt.Fprintln(cli.writer, "7. Add tag to task")
+	fmt.Fprintln(cli.writer, "8. Remove tag from task")
+	fmt.Fprintln(cli.writer, "9. Set task progress")
+	fmt.Fprintln(cli.writer, "10. List tasks by tag")
+	fmt.Fprintln(cli.writer, "11. Exit")
 }
 
 // readInput reads a line of input from the user.
 // It returns the trimmed string containing the user's input.
 func (cli *CLI) readInput(prompt string) (string, error) {
-	fmt.Print(prompt)
+	fmt.Fprint(cli.writer, prompt)
 	input, err := cli.reader.ReadString('\n')
 	if err != nil {
 		return "", err
@@ -130,7 +133,7 @@ func (cli *CLI) handleAddTask() error {
 		return err
 	}
 
-	fmt.Println("Task added successfully!")
+	fmt.Fprintln(cli.writer, "Task added successfully!")
 	return nil
 }
 
@@ -142,11 +145,11 @@ func (cli *CLI) handleListTasks() error {
 	}
 
 	if len(tasks) == 0 {
-		fmt.Println("\nNo tasks found.")
+		fmt.Fprintln(cli.writer, "\nNo tasks found.")
 		return nil
 	}
 
-	fmt.Println("\nTasks:")
+	fmt.Fprintln(cli.writer, "\nTasks:")
 	for i, task := range tasks {
 		status := "[ ]"
 		if task.Completed {
@@ -161,7 +164,7 @@ func (cli *CLI) handleListTasks() error {
 		if len(task.Tags) > 0 {
 			tags = strings.Join(task.Tags, ", ")
 		}
-		fmt.Printf("%d. %s %s (Priority: %s, Due: %s, Progress: %d%%, Tags: %s)\n",
+		fmt.Fprintf(cli.writer, "%d. %s %s (Priority: %s, Due: %s, Progress: %d%%, Tags: %s)\n",
 			i+1, status, task.Description, priority, dueDate, task.Progress, tags)
 	}
 	return nil
@@ -178,7 +181,7 @@ func (cli *CLI) handleMarkAsCompleted() error {
 	}
 
 	if len(tasks) == 0 {
-		fmt.Println("No tasks available to mark as completed.")
+		fmt.Fprintln(cli.writer, "No tasks available to mark as completed.")
 		return nil
 	}
 
@@ -202,7 +205,7 @@ func (cli *CLI) handleMarkAsCompleted() error {
 		return err
 	}
 
-	fmt.Println("Task marked as completed!")
+	fmt.Fprintln(cli.writer, "Task marked as completed!")
 	return nil
 }
 
@@ -217,7 +220,7 @@ func (cli *CLI) handleSetPriority() error {
 	}
 
 	if len(tasks) == 0 {
-		fmt.Println("No tasks available to set priority.")
+		fmt.Fprintln(cli.writer, "No tasks available to set priority.")
 		return nil
 	}
 
@@ -236,10 +239,10 @@ func (cli *CLI) handleSetPriority() error {
 		return fmt.Errorf("invalid task number")
 	}
 
-	fmt.Println("\nPriority levels:")
-	fmt.Println("1. Low")
-	fmt.Println("2. Medium")
-	fmt.Println("3. High")
+	fmt.Fprintln(cli.writer, "\nPriority levels:")
+	fmt.Fprintln(cli.writer, "1. Low")
+	fmt.Fprintln(cli.writer, "2. Medium")
+	fmt.Fprintln(cli.writer, "3. High")
 
 	priorityStr, err := cli.readInput("Enter priority level (1-3): ")
 	if err != nil {
@@ -260,7 +263,7 @@ func (cli *CLI) handleSetPriority() error {
 		return err
 	}
 
-	fmt.Println("Task priority updated!")
+	fmt.Fprintln(cli.writer, "Task priority updated!")
 	return nil
 }
 
@@ -275,7 +278,7 @@ func (cli *CLI) handleSetDueDate() error {
 	}
 
 	if len(tasks) == 0 {
-		fmt.Println("No tasks available to set due date.")
+		fmt.Fprintln(cli.writer, "No tasks available to set due date.")
 		return nil
 	}
 
@@ -309,7 +312,7 @@ func (cli *CLI) handleSetDueDate() error {
 		return err
 	}
 
-	fmt.Println("Task due date updated!")
+	fmt.Fprintln(cli.writer, "Task due date updated!")
 	return nil
 }
 
@@ -324,7 +327,7 @@ func (cli *CLI) handleDeleteTask() error {
 	}
 
 	if len(tasks) == 0 {
-		fmt.Println("No tasks available to delete.")
+		fmt.Fprintln(cli.writer, "No tasks available to delete.")
 		return nil
 	}
 
@@ -348,7 +351,7 @@ func (cli *CLI) handleDeleteTask() error {
 		return err
 	}
 
-	fmt.Println("Task deleted successfully!")
+	fmt.Fprintln(cli.writer, "Task deleted successfully!")
 	return nil
 }
 
@@ -374,7 +377,7 @@ func (cli *CLI) handleAddTag() error {
 	}
 
 	if len(tasks) == 0 {
-		fmt.Println("No tasks available to add tags.")
+		fmt.Fprintln(cli.writer, "No tasks available to add tags.")
 		return nil
 	}
 
@@ -407,7 +410,7 @@ func (cli *CLI) handleAddTag() error {
 		return err
 	}
 
-	fmt.Println("Tag added successfully!")
+	fmt.Fprintln(cli.writer, "Tag added successfully!")
 	return nil
 }
 
@@ -419,7 +422,7 @@ func (cli *CLI) handleRemoveTag() error {
 	}
 
 	if len(tasks) == 0 {
-		fmt.Println("No tasks available to remove tags.")
+		fmt.Fprintln(cli.writer, "No tasks available to remove tags.")
 		return nil
 	}
 
@@ -440,14 +443,14 @@ func (cli *CLI) handleRemoveTag() error {
 
 	task := tasks[index-1]
 	if len(task.Tags) == 0 {
-		fmt.Println("This task has no tags.")
+		fmt.Fprintln(cli.writer, "This task has no tags.")
 		return nil
 	}
 
 	// Display existing tags
-	fmt.Println("Existing tags:")
+	fmt.Fprintln(cli.writer, "Existing tags:")
 	for i, tag := range task.Tags {
-		fmt.Printf("%d. %s\n", i+1, tag)
+		fmt.Fprintf(cli.writer, "%d. %s\n", i+1, tag)
 	}
 
 	tagIndexStr, err := cli.readInput("Enter tag number to remove: ")
@@ -469,7 +472,7 @@ func (cli *CLI) handleRemoveTag() error {
 		return err
 	}
 
-	fmt.Println("Tag removed successfully!")
+	fmt.Fprintln(cli.writer, "Tag removed successfully!")
 	return nil
 }
 
@@ -481,7 +484,7 @@ func (cli *CLI) handleSetProgress() error {
 	}
 
 	if len(tasks) == 0 {
-		fmt.Println("No tasks available to set progress.")
+		fmt.Fprintln(cli.writer, "No tasks available to set progress.")
 		return nil
 	}
 
@@ -519,11 +522,11 @@ func (cli *CLI) handleSetProgress() error {
 		return err
 	}
 
-	fmt.Printf("Progress set to %d%%\n", progress)
+	fmt.Fprintf(cli.writer, "Progress set to %d%%\n", progress)
 	if progress == 100 {
-		fmt.Println("Task marked as completed!")
+		fmt.Fprintln(cli.writer, "Task marked as completed!")
 	} else if task.Completed {
-		fmt.Println("Task marked as incomplete.")
+		fmt.Fprintln(cli.writer, "Task marked as incomplete.")
 	}
 
 	return nil
@@ -546,11 +549,11 @@ func (cli *CLI) handleListTasksByTag() error {
 	}
 
 	if len(tasks) == 0 {
-		fmt.Printf("\nNo tasks found with tag '%s'.\n", tag)
+		fmt.Fprintf(cli.writer, "\nNo tasks found with tag '%s'.\n", tag)
 		return nil
 	}
 
-	fmt.Printf("\nTasks with tag '%s':\n", tag)
+	fmt.Fprintf(cli.writer, "\nTasks with tag '%s':\n", tag)
 	for i, task := range tasks {
 		status := "[ ]"
 		if task.Completed {
@@ -562,7 +565,7 @@ func (cli *CLI) handleListTasksByTag() error {
 			dueDate = task.DueDate.Format("2006-01-02")
 		}
 
-		fmt.Printf("%d. %s %s (Priority: %s, Due: %s, Progress: %d%%)\n",
+		fmt.Fprintf(cli.writer, "%d. %s %s (Priority: %s, Due: %s, Progress: %d%%)\n",
 			i+1, status, task.Description, priority, dueDate, task.Progress)
 	}
 	return nil
