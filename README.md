@@ -1,185 +1,158 @@
-# Task Manager
+# Task Manager CLI
 
-A secure and efficient command-line task manager written in Go that helps you manage your daily tasks through a terminal interface. The project follows Go best practices for documentation, security, and code organization.
+A secure command-line task manager written in Go that helps you manage your tasks efficiently.
+
+[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Go Version](https://img.shields.io/badge/Go-1.18+-00ADD8.svg)](https://golang.org/)
+
+![Task Manager](https://images.unsplash.com/photo-1540350394557-8d14678e7f91?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1489&q=80)
+
+## Features
+
+- 📝 Create, read, update, and delete tasks
+- ✅ Mark tasks as completed
+- ⭐ Set task priorities (Low, Medium, High)
+- 📅 Set due dates for tasks
+- 🏷️ Add and remove tags for better task organization
+- 📊 Track task progress (0-100%)
+- 🔍 Filter tasks by tags
+- 💾 Multiple storage backends (JSON file, in-memory)
+- 🔄 Automatic backups with configurable interval
+- 🛡️ Secure storage with proper error handling
+
+## Getting Started
+
+### Prerequisites
+
+- Go 1.18 or higher
+
+### Installation
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/yourusername/task-manager.git
+cd task-manager
+```
+
+2. Build the application:
+
+```bash
+go build -o task-manager ./cmd/task-manager
+```
+
+3. Run the application:
+
+```bash
+./task-manager
+```
+
+## Usage
+
+### Command Line Options
+
+The task manager supports various command line options:
+
+```
+Usage: task-manager [options]
+
+Options:
+  -backup
+        Enable automatic task backup (default true)
+  -backup-dir string
+        Directory for storing backups (default: data-dir/backups)
+  -backup-interval duration
+        Interval between automatic backups (default 1h0m0s)
+  -data-dir string
+        Custom directory for storing task data
+  -debug
+        Enable debug mode for detailed logging
+  -max-backups int
+        Maximum number of backups to keep (default 5)
+  -max-tasks int
+        Maximum number of tasks allowed (default 10000)
+  -storage string
+        Storage type: 'json' or 'memory' (default "json")
+  -version
+        Show version information
+
+Examples:
+  task-manager --data-dir ~/.my-tasks --backup=false
+  task-manager --storage memory --max-tasks 100
+  task-manager --backup-interval 30m --max-backups 10
+```
+
+### Interactive Interface
+
+Once running, the task manager provides an interactive menu:
+
+```
+Task Manager Menu:
+1. Add task
+2. List tasks
+3. Mark task as completed
+4. Set task priority
+5. Set task due date
+6. Delete task
+7. Add tag to task
+8. Remove tag from task
+9. Set task progress
+10. List tasks by tag
+11. Exit
+```
 
 ## Project Structure
 
 ```
-.
-├── cmd/
-│   └── task-manager/     # Application entry point
-│       └── main.go       # Main application with CLI flags
-├── internal/
-│   ├── storage/         # Storage implementations
-│   │   └── storage.go   # JSON file storage with security features
-│   └── task/            # Internal package for task management
-│       ├── service.go   # Business logic
-│       └── cli.go       # CLI interface
-├── pkg/
-│   └── models/          # Shared models
-│       └── task.go      # Task entity definition
-├── LICENSE              # MIT License
-└── go.mod              # Go module definition
+task-manager/
+├── cmd/                   # Command-line applications
+│   └── task-manager/      # Main application entry point
+├── internal/              # Private application and library code
+│   ├── storage/           # Storage implementations
+│   └── task/              # Task management business logic
+├── pkg/                   # Library code that can be used by external applications
+│   └── models/            # Data models
+├── go.mod                 # Go module definition
+├── LICENSE                # MIT License
+└── README.md              # This file
 ```
 
-## Features
+## Architecture
 
-- Add new tasks with descriptions
-- List all tasks with their completion status
-- Mark tasks as completed
-- Set task priority (Low, Medium, High)
-- Set task due dates
-- Delete tasks
-- Custom data directory support
-- Automatic task backup
-- Configurable maximum tasks limit
-- Debug mode for detailed logging
-- Version information display
-- Simple and intuitive command-line interface
-- Secure file storage with atomic operations
-- Thread-safe operations
-- Resource limits and validation
-- Comprehensive error handling
-- Data integrity protection
+The Task Manager follows a clean architecture with clear separation of concerns:
+
+1. **Models** (`pkg/models`): Core data structures
+2. **Storage** (`internal/storage`): Data persistence layer with multiple implementations
+3. **Service** (`internal/task`): Business logic layer
+4. **CLI** (`internal/task`): Presentation layer
+5. **Main** (`cmd/task-manager`): Application entry point
 
 ## Security Features
 
 - Secure file permissions (0600 for files, 0700 for directories)
 - Path traversal protection
-- Resource limits (configurable max tasks, 10MB file size)
+- Resource limits (configurable maximum tasks)
 - Atomic file operations
 - Input validation
 - Thread-safe operations
 - Secure temporary file handling
 - Data integrity checks
 
-## Requirements
-
-- Go 1.21 or higher
-
-## Installation
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/YuriLeonel/task-manager.git
-   ```
-
-2. Navigate to the project directory:
-
-   ```bash
-   cd task-manager
-   ```
-
-3. Build the application:
-   ```bash
-   go build ./cmd/task-manager
-   ```
-
-## Running the Application
-
-You can run the application with various command-line options:
-
-```bash
-# Show help and available options
-task-manager --help
-
-# Show version information
-task-manager --version
-
-# Use custom data directory
-task-manager --data-dir ~/.my-tasks
-
-# Disable automatic backup
-task-manager --backup=false
-
-# Set maximum number of tasks
-task-manager --max-tasks 5000
-
-# Enable debug mode for detailed logging
-task-manager --debug
-```
-
-## Interactive Menu
-
-The application provides an interactive menu with the following options:
-
-1. **Add task**: Add a new task to your list
-
-   - Enter a description for your task
-   - Task is validated and stored securely
-
-2. **List tasks**: Display all tasks
-
-   - Shows tasks with their completion status ([ ] for pending, [X] for completed)
-   - Displays priority level and due date
-   - Tasks are displayed with their creation and update times
-
-3. **Mark as completed**: Mark a task as completed
-
-   - Select a task by its number
-   - Updates are performed atomically
-
-4. **Set task priority**: Update a task's priority level
-
-   - Choose between Low, Medium, or High
-   - Changes are saved immediately
-
-5. **Set task due date**: Add or update a task's due date
-
-   - Enter date in YYYY-MM-DD format
-   - Due dates are displayed in the task list
-
-6. **Delete task**: Remove a task from the list
-
-   - Select a task by its number
-   - Deletion is performed atomically
-
-7. **Exit**: Close the application
-   - Ensures all data is properly saved
-
-## Data Storage
-
-Tasks are stored in a JSON file located in the user's home directory by default:
-
-- Default path: `~/.task-manager/tasks.json`
-- Custom path: Configurable via `--data-dir` option
-- Secure file permissions
-- Atomic write operations
-- Automatic backup handling (can be disabled)
-
-## Documentation
-
-The codebase follows Go's documentation conventions:
-
-- Package documentation is available in each package's main file
-- Functions and types are documented using godoc format
-- Security considerations are documented
-- Error handling is clearly documented
-- To view the documentation locally, run:
-  ```bash
-  go doc ./...
-  ```
-
 ## Contributing
 
+Contributions are welcome! Please feel free to submit a Pull Request.
+
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-### MIT License Summary
+## Acknowledgments
 
-- ✔️ Commercial use
-- ✔️ Modification
-- ✔️ Distribution
-- ✔️ Private use
-- ❗ Must include copy of license and copyright notice
-- ❌ No liability or warranty
-
-For more information about the MIT License, visit [Choose a License](https://choosealicense.com/licenses/mit/).
+- Task Manager was created as a learning project for Go programming
+- Inspired by various task management systems and productivity tools

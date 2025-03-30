@@ -3,8 +3,11 @@
 package task
 
 import (
+	"context"
 	"fmt"
 	"time"
+
+	"slices"
 
 	"github.com/YuriLeonel/task-manager/internal/storage"
 	"github.com/YuriLeonel/task-manager/pkg/models"
@@ -25,54 +28,149 @@ func NewService(storage storage.Storage) *Service {
 
 // AddTask creates a new task with the given description.
 func (s *Service) AddTask(description string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	task := models.NewTask(description)
-	return s.storage.SaveTask(task)
+	return s.storage.SaveTask(ctx, task)
 }
 
 // ListTasks returns all tasks from storage.
 func (s *Service) ListTasks() ([]*models.Task, error) {
-	return s.storage.GetAllTasks()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	return s.storage.GetAllTasks(ctx)
 }
 
 // MarkAsCompleted marks a task as completed by its ID.
 func (s *Service) MarkAsCompleted(id string) error {
-	task, err := s.storage.GetTask(id)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	task, err := s.storage.GetTask(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to get task: %w", err)
 	}
 
 	task.MarkAsCompleted()
-	return s.storage.UpdateTask(task)
+	return s.storage.UpdateTask(ctx, task)
 }
 
 // SetPriority updates a task's priority.
 func (s *Service) SetPriority(id string, priority models.Priority) error {
-	task, err := s.storage.GetTask(id)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	task, err := s.storage.GetTask(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to get task: %w", err)
 	}
 
 	task.SetPriority(priority)
-	return s.storage.UpdateTask(task)
+	return s.storage.UpdateTask(ctx, task)
 }
 
 // SetDueDate updates a task's due date.
 func (s *Service) SetDueDate(id string, dueDate time.Time) error {
-	task, err := s.storage.GetTask(id)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	task, err := s.storage.GetTask(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to get task: %w", err)
 	}
 
 	task.SetDueDate(dueDate)
-	return s.storage.UpdateTask(task)
+	return s.storage.UpdateTask(ctx, task)
+}
+
+// AddTag adds a tag to a task
+func (s *Service) AddTag(id string, tag string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if tag == "" {
+		return fmt.Errorf("tag cannot be empty")
+	}
+
+	task, err := s.storage.GetTask(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to get task: %w", err)
+	}
+
+	task.AddTag(tag)
+	return s.storage.UpdateTask(ctx, task)
+}
+
+// RemoveTag removes a tag from a task
+func (s *Service) RemoveTag(id string, tag string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if tag == "" {
+		return fmt.Errorf("tag cannot be empty")
+	}
+
+	task, err := s.storage.GetTask(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to get task: %w", err)
+	}
+
+	task.RemoveTag(tag)
+	return s.storage.UpdateTask(ctx, task)
+}
+
+// SetProgress updates a task's progress percentage
+func (s *Service) SetProgress(id string, progress int) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	task, err := s.storage.GetTask(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to get task: %w", err)
+	}
+
+	task.SetProgress(progress)
+	return s.storage.UpdateTask(ctx, task)
 }
 
 // DeleteTask removes a task by its ID.
 func (s *Service) DeleteTask(id string) error {
-	return s.storage.DeleteTask(id)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	return s.storage.DeleteTask(ctx, id)
 }
 
 // GetTask retrieves a task by its ID.
 func (s *Service) GetTask(id string) (*models.Task, error) {
-	return s.storage.GetTask(id)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	return s.storage.GetTask(ctx, id)
+}
+
+// GetTasksByTag returns all tasks that have the specified tag
+func (s *Service) GetTasksByTag(tag string) ([]*models.Task, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if tag == "" {
+		return nil, fmt.Errorf("tag cannot be empty")
+	}
+
+	tasks, err := s.storage.GetAllTasks(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var filteredTasks []*models.Task
+	for _, task := range tasks {
+		if slices.Contains(task.Tags, tag) {
+			filteredTasks = append(filteredTasks, task)
+		}
+	}
+
+	return filteredTasks, nil
 }

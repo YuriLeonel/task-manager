@@ -66,6 +66,22 @@ func (cli *CLI) Run() error {
 				fmt.Printf("Error: %v\n", err)
 			}
 		case "7":
+			if err := cli.handleAddTag(); err != nil {
+				fmt.Printf("Error: %v\n", err)
+			}
+		case "8":
+			if err := cli.handleRemoveTag(); err != nil {
+				fmt.Printf("Error: %v\n", err)
+			}
+		case "9":
+			if err := cli.handleSetProgress(); err != nil {
+				fmt.Printf("Error: %v\n", err)
+			}
+		case "10":
+			if err := cli.handleListTasksByTag(); err != nil {
+				fmt.Printf("Error: %v\n", err)
+			}
+		case "11":
 			return nil
 		default:
 			fmt.Println("Invalid choice. Please try again.")
@@ -83,7 +99,11 @@ func (cli *CLI) displayMenu() {
 	fmt.Println("4. Set task priority")
 	fmt.Println("5. Set task due date")
 	fmt.Println("6. Delete task")
-	fmt.Println("7. Exit")
+	fmt.Println("7. Add tag to task")
+	fmt.Println("8. Remove tag from task")
+	fmt.Println("9. Set task progress")
+	fmt.Println("10. List tasks by tag")
+	fmt.Println("11. Exit")
 }
 
 // readInput reads a line of input from the user.
@@ -137,7 +157,12 @@ func (cli *CLI) handleListTasks() error {
 		if task.DueDate != nil {
 			dueDate = task.DueDate.Format("2006-01-02")
 		}
-		fmt.Printf("%d. %s %s (Priority: %s, Due: %s)\n", i+1, status, task.Description, priority, dueDate)
+		tags := "No tags"
+		if len(task.Tags) > 0 {
+			tags = strings.Join(task.Tags, ", ")
+		}
+		fmt.Printf("%d. %s %s (Priority: %s, Due: %s, Progress: %d%%, Tags: %s)\n",
+			i+1, status, task.Description, priority, dueDate, task.Progress, tags)
 	}
 	return nil
 }
@@ -339,4 +364,206 @@ func getPriorityString(priority models.Priority) string {
 	default:
 		return "Unknown"
 	}
+}
+
+// handleAddTag handles adding a tag to a task.
+func (cli *CLI) handleAddTag() error {
+	tasks, err := cli.service.ListTasks()
+	if err != nil {
+		return err
+	}
+
+	if len(tasks) == 0 {
+		fmt.Println("No tasks available to add tags.")
+		return nil
+	}
+
+	cli.handleListTasks()
+	indexStr, err := cli.readInput("Enter task number to add tag: ")
+	if err != nil {
+		return err
+	}
+
+	index, err := strconv.Atoi(indexStr)
+	if err != nil {
+		return fmt.Errorf("invalid task number")
+	}
+
+	if index < 1 || index > len(tasks) {
+		return fmt.Errorf("invalid task number")
+	}
+
+	tag, err := cli.readInput("Enter tag name: ")
+	if err != nil {
+		return err
+	}
+
+	if tag == "" {
+		return fmt.Errorf("tag cannot be empty")
+	}
+
+	task := tasks[index-1]
+	if err := cli.service.AddTag(task.ID, tag); err != nil {
+		return err
+	}
+
+	fmt.Println("Tag added successfully!")
+	return nil
+}
+
+// handleRemoveTag handles removing a tag from a task.
+func (cli *CLI) handleRemoveTag() error {
+	tasks, err := cli.service.ListTasks()
+	if err != nil {
+		return err
+	}
+
+	if len(tasks) == 0 {
+		fmt.Println("No tasks available to remove tags.")
+		return nil
+	}
+
+	cli.handleListTasks()
+	indexStr, err := cli.readInput("Enter task number to remove tag: ")
+	if err != nil {
+		return err
+	}
+
+	index, err := strconv.Atoi(indexStr)
+	if err != nil {
+		return fmt.Errorf("invalid task number")
+	}
+
+	if index < 1 || index > len(tasks) {
+		return fmt.Errorf("invalid task number")
+	}
+
+	task := tasks[index-1]
+	if len(task.Tags) == 0 {
+		fmt.Println("This task has no tags.")
+		return nil
+	}
+
+	// Display existing tags
+	fmt.Println("Existing tags:")
+	for i, tag := range task.Tags {
+		fmt.Printf("%d. %s\n", i+1, tag)
+	}
+
+	tagIndexStr, err := cli.readInput("Enter tag number to remove: ")
+	if err != nil {
+		return err
+	}
+
+	tagIndex, err := strconv.Atoi(tagIndexStr)
+	if err != nil {
+		return fmt.Errorf("invalid tag number")
+	}
+
+	if tagIndex < 1 || tagIndex > len(task.Tags) {
+		return fmt.Errorf("invalid tag number")
+	}
+
+	tag := task.Tags[tagIndex-1]
+	if err := cli.service.RemoveTag(task.ID, tag); err != nil {
+		return err
+	}
+
+	fmt.Println("Tag removed successfully!")
+	return nil
+}
+
+// handleSetProgress handles setting the progress of a task.
+func (cli *CLI) handleSetProgress() error {
+	tasks, err := cli.service.ListTasks()
+	if err != nil {
+		return err
+	}
+
+	if len(tasks) == 0 {
+		fmt.Println("No tasks available to set progress.")
+		return nil
+	}
+
+	cli.handleListTasks()
+	indexStr, err := cli.readInput("Enter task number to set progress: ")
+	if err != nil {
+		return err
+	}
+
+	index, err := strconv.Atoi(indexStr)
+	if err != nil {
+		return fmt.Errorf("invalid task number")
+	}
+
+	if index < 1 || index > len(tasks) {
+		return fmt.Errorf("invalid task number")
+	}
+
+	progressStr, err := cli.readInput("Enter progress percentage (0-100): ")
+	if err != nil {
+		return err
+	}
+
+	progress, err := strconv.Atoi(progressStr)
+	if err != nil {
+		return fmt.Errorf("invalid progress value")
+	}
+
+	if progress < 0 || progress > 100 {
+		return fmt.Errorf("progress must be between 0 and 100")
+	}
+
+	task := tasks[index-1]
+	if err := cli.service.SetProgress(task.ID, progress); err != nil {
+		return err
+	}
+
+	fmt.Printf("Progress set to %d%%\n", progress)
+	if progress == 100 {
+		fmt.Println("Task marked as completed!")
+	} else if task.Completed {
+		fmt.Println("Task marked as incomplete.")
+	}
+
+	return nil
+}
+
+// handleListTasksByTag displays all tasks with a specific tag.
+func (cli *CLI) handleListTasksByTag() error {
+	tag, err := cli.readInput("Enter tag to filter by: ")
+	if err != nil {
+		return err
+	}
+
+	if tag == "" {
+		return fmt.Errorf("tag cannot be empty")
+	}
+
+	tasks, err := cli.service.GetTasksByTag(tag)
+	if err != nil {
+		return err
+	}
+
+	if len(tasks) == 0 {
+		fmt.Printf("\nNo tasks found with tag '%s'.\n", tag)
+		return nil
+	}
+
+	fmt.Printf("\nTasks with tag '%s':\n", tag)
+	for i, task := range tasks {
+		status := "[ ]"
+		if task.Completed {
+			status = "[X]"
+		}
+		priority := getPriorityString(task.Priority)
+		dueDate := "No due date"
+		if task.DueDate != nil {
+			dueDate = task.DueDate.Format("2006-01-02")
+		}
+
+		fmt.Printf("%d. %s %s (Priority: %s, Due: %s, Progress: %d%%)\n",
+			i+1, status, task.Description, priority, dueDate, task.Progress)
+	}
+	return nil
 }

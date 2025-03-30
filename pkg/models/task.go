@@ -3,6 +3,7 @@
 package models
 
 import (
+	"slices"
 	"time"
 )
 
@@ -32,6 +33,10 @@ type Task struct {
 	DueDate *time.Time `json:"due_date,omitempty"`
 	// Priority indicates the task's priority level
 	Priority Priority `json:"priority"`
+	// Tags contains categorization labels for the task
+	Tags []string `json:"tags,omitempty"`
+	// Progress tracks completion percentage (0-100)
+	Progress int `json:"progress"`
 }
 
 // NewTask creates a new Task instance with the given description.
@@ -45,12 +50,15 @@ func NewTask(description string) *Task {
 		CreatedAt:   now,
 		UpdatedAt:   now,
 		Priority:    Medium,
+		Tags:        []string{},
+		Progress:    0,
 	}
 }
 
 // MarkAsCompleted marks the task as completed and updates the UpdatedAt timestamp.
 func (task *Task) MarkAsCompleted() {
 	task.Completed = true
+	task.Progress = 100
 	task.UpdatedAt = time.Now()
 }
 
@@ -63,6 +71,50 @@ func (task *Task) SetPriority(priority Priority) {
 // SetDueDate updates the task's due date and updates the UpdatedAt timestamp.
 func (task *Task) SetDueDate(dueDate time.Time) {
 	task.DueDate = &dueDate
+	task.UpdatedAt = time.Now()
+}
+
+// AddTag adds a new tag to the task if it doesn't already exist.
+func (task *Task) AddTag(tag string) {
+	// Check if tag already exists
+	if slices.Contains(task.Tags, tag) {
+		return // Tag already exists, don't add it again
+	}
+
+	task.Tags = append(task.Tags, tag)
+	task.UpdatedAt = time.Now()
+}
+
+// RemoveTag removes a tag from the task.
+func (task *Task) RemoveTag(tag string) {
+	for i, existingTag := range task.Tags {
+		if existingTag == tag {
+			// Remove tag by slicing it out
+			task.Tags = append(task.Tags[:i], task.Tags[i+1:]...)
+			task.UpdatedAt = time.Now()
+			return
+		}
+	}
+}
+
+// SetProgress updates the task's progress percentage (0-100).
+func (task *Task) SetProgress(progress int) {
+	// Ensure progress is between 0 and 100
+	if progress < 0 {
+		progress = 0
+	} else if progress > 100 {
+		progress = 100
+	}
+
+	task.Progress = progress
+
+	// If progress is 100%, mark task as completed
+	if progress == 100 {
+		task.Completed = true
+	} else {
+		task.Completed = false
+	}
+
 	task.UpdatedAt = time.Now()
 }
 

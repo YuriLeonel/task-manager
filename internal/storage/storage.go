@@ -13,6 +13,7 @@
 package storage
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -20,6 +21,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"slices"
 
 	"github.com/YuriLeonel/task-manager/pkg/models"
 )
@@ -41,19 +44,19 @@ const (
 type Storage interface {
 	// SaveTask saves a task to the storage.
 	// It validates the task before saving and ensures atomic operations.
-	SaveTask(task *models.Task) error
+	SaveTask(ctx context.Context, task *models.Task) error
 	// GetTask retrieves a task by its ID.
 	// Returns a copy of the task to prevent external modification.
-	GetTask(id string) (*models.Task, error)
+	GetTask(ctx context.Context, id string) (*models.Task, error)
 	// GetAllTasks retrieves all tasks.
 	// Returns copies of all tasks to prevent external modification.
-	GetAllTasks() ([]*models.Task, error)
+	GetAllTasks(ctx context.Context) ([]*models.Task, error)
 	// UpdateTask updates an existing task.
 	// It validates the task and ensures atomic operations.
-	UpdateTask(task *models.Task) error
+	UpdateTask(ctx context.Context, task *models.Task) error
 	// DeleteTask removes a task by its ID.
 	// Ensures atomic operations during deletion.
-	DeleteTask(id string) error
+	DeleteTask(ctx context.Context, id string) error
 }
 
 // JSONFileStorage implements Storage interface using JSON files.
@@ -134,7 +137,12 @@ func (s *JSONFileStorage) validateTask(task *models.Task) error {
 }
 
 // SaveTask saves a task to the JSON file.
-func (s *JSONFileStorage) SaveTask(newTask *models.Task) error {
+func (s *JSONFileStorage) SaveTask(ctx context.Context, newTask *models.Task) error {
+	// Check for context cancellation
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("context error: %w", err)
+	}
+
 	if err := s.validateTask(newTask); err != nil {
 		return err
 	}
@@ -143,7 +151,7 @@ func (s *JSONFileStorage) SaveTask(newTask *models.Task) error {
 	defer s.mu.Unlock()
 
 	// Read existing tasks
-	existingTasks, err := s.readTasks()
+	existingTasks, err := s.readTasks(ctx)
 	if err != nil {
 		return err
 	}
@@ -162,11 +170,16 @@ func (s *JSONFileStorage) SaveTask(newTask *models.Task) error {
 
 	// Add new task and save
 	existingTasks = append(existingTasks, newTask)
-	return s.saveTasks(existingTasks)
+	return s.saveTasks(ctx, existingTasks)
 }
 
 // GetTask retrieves a task by its ID.
-func (s *JSONFileStorage) GetTask(taskID string) (*models.Task, error) {
+func (s *JSONFileStorage) GetTask(ctx context.Context, taskID string) (*models.Task, error) {
+	// Check for context cancellation
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context error: %w", err)
+	}
+
 	if taskID == "" {
 		return nil, fmt.Errorf("task ID cannot be empty")
 	}
@@ -174,7 +187,7 @@ func (s *JSONFileStorage) GetTask(taskID string) (*models.Task, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	tasks, err := s.readTasks()
+	tasks, err := s.readTasks(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -189,25 +202,35 @@ func (s *JSONFileStorage) GetTask(taskID string) (*models.Task, error) {
 }
 
 // GetAllTasks retrieves all tasks from the JSON file.
-func (s *JSONFileStorage) GetAllTasks() ([]*models.Task, error) {
+func (s *JSONFileStorage) GetAllTasks(ctx context.Context) ([]*models.Task, error) {
+	// Check for context cancellation
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context error: %w", err)
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	tasks, err := s.readTasks()
+	tasks, err := s.readTasks(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	// Return copies to prevent external modification
-	taskCopies := make([]*models.Task, len(tasks))
+	tasksCopy := make([]*models.Task, len(tasks))
 	for i, task := range tasks {
-		taskCopies[i] = copyTask(task)
+		tasksCopy[i] = copyTask(task)
 	}
-	return taskCopies, nil
+	return tasksCopy, nil
 }
 
 // UpdateTask updates an existing task in the JSON file.
-func (s *JSONFileStorage) UpdateTask(updatedTask *models.Task) error {
+func (s *JSONFileStorage) UpdateTask(ctx context.Context, updatedTask *models.Task) error {
+	// Check for context cancellation
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("context error: %w", err)
+	}
+
 	if err := s.validateTask(updatedTask); err != nil {
 		return err
 	}
@@ -215,26 +238,34 @@ func (s *JSONFileStorage) UpdateTask(updatedTask *models.Task) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	tasks, err := s.readTasks()
+	tasks, err := s.readTasks(ctx)
 	if err != nil {
 		return err
 	}
 
-	for i, existingTask := range tasks {
-		if existingTask.ID == updatedTask.ID {
-			// Preserve original creation time
-			updatedTask.CreatedAt = existingTask.CreatedAt
-			// Update the modification time
-			updatedTask.UpdatedAt = time.Now()
+	found := false
+	for i, task := range tasks {
+		if task.ID == updatedTask.ID {
 			tasks[i] = updatedTask
-			return s.saveTasks(tasks)
+			found = true
+			break
 		}
 	}
-	return fmt.Errorf("task not found: %s", updatedTask.ID)
+
+	if !found {
+		return fmt.Errorf("task not found: %s", updatedTask.ID)
+	}
+
+	return s.saveTasks(ctx, tasks)
 }
 
-// DeleteTask removes a task by its ID from the JSON file.
-func (s *JSONFileStorage) DeleteTask(taskID string) error {
+// DeleteTask removes a task from the JSON file.
+func (s *JSONFileStorage) DeleteTask(ctx context.Context, taskID string) error {
+	// Check for context cancellation
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("context error: %w", err)
+	}
+
 	if taskID == "" {
 		return fmt.Errorf("task ID cannot be empty")
 	}
@@ -242,102 +273,147 @@ func (s *JSONFileStorage) DeleteTask(taskID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	tasks, err := s.readTasks()
+	tasks, err := s.readTasks(ctx)
 	if err != nil {
 		return err
 	}
 
+	index := -1
 	for i, task := range tasks {
 		if task.ID == taskID {
-			tasks = append(tasks[:i], tasks[i+1:]...)
-			return s.saveTasks(tasks)
+			index = i
+			break
 		}
 	}
-	return fmt.Errorf("task not found: %s", taskID)
+
+	if index == -1 {
+		return fmt.Errorf("task not found: %s", taskID)
+	}
+
+	// Remove task by index
+	tasks = slices.Delete(tasks, index, index+1)
+	return s.saveTasks(ctx, tasks)
 }
 
-// readTasks reads all tasks from the JSON file.
-func (s *JSONFileStorage) readTasks() ([]*models.Task, error) {
-	// Check if file exists and get its size
-	fileInfo, err := os.Stat(s.tasksFilePath)
+// readTasks reads tasks from the JSON file.
+func (s *JSONFileStorage) readTasks(ctx context.Context) ([]*models.Task, error) {
+	// Check for context cancellation
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context error: %w", err)
+	}
+
+	// If file doesn't exist, return empty slice
+	if _, err := os.Stat(s.tasksFilePath); os.IsNotExist(err) {
+		return []*models.Task{}, nil
+	}
+
+	// Open the file
+	file, err := os.Open(s.tasksFilePath)
 	if err != nil {
-		if os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to open tasks file: %w", err)
+	}
+	defer file.Close()
+
+	// Check file size
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file info: %w", err)
+	}
+	if fileInfo.Size() > maxFileSize {
+		return nil, fmt.Errorf("file size exceeds maximum allowed size")
+	}
+
+	// Decode tasks
+	var tasks []*models.Task
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&tasks); err != nil {
+		if err.Error() == "EOF" {
+			// Empty file, return empty slice
 			return []*models.Task{}, nil
 		}
-		return nil, fmt.Errorf("failed to stat file: %w", err)
-	}
-
-	// Check file size limit
-	if fileInfo.Size() > maxFileSize {
-		return nil, fmt.Errorf("file size exceeds maximum allowed size of %d bytes", maxFileSize)
-	}
-
-	fileContent, err := os.ReadFile(s.tasksFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
-	}
-
-	var tasks []*models.Task
-	if err := json.Unmarshal(fileContent, &tasks); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal tasks: %w", err)
+		return nil, fmt.Errorf("failed to decode tasks: %w", err)
 	}
 
 	return tasks, nil
 }
 
-// saveTasks saves all tasks to the JSON file.
-func (s *JSONFileStorage) saveTasks(tasks []*models.Task) error {
-	jsonData, err := json.MarshalIndent(tasks, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal tasks: %w", err)
+// saveTasks writes tasks to the JSON file atomically.
+func (s *JSONFileStorage) saveTasks(ctx context.Context, tasks []*models.Task) error {
+	// Check for context cancellation
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("context error: %w", err)
 	}
 
-	// Ensure the directory exists with secure permissions
-	if err := os.MkdirAll(filepath.Dir(s.tasksFilePath), defaultDirMode); err != nil {
+	// Create directory if it doesn't exist
+	dir := filepath.Dir(s.tasksFilePath)
+	if err := os.MkdirAll(dir, defaultDirMode); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	// Create a temporary file in the same directory
-	tempFilePath := s.tasksFilePath + ".tmp"
-	tempFile, err := os.OpenFile(tempFilePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, defaultFileMode)
+	tempFile, err := os.CreateTemp(dir, "tasks-*.json.tmp")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file: %w", err)
 	}
+	tempFilePath := tempFile.Name()
 
-	// Write data to temporary file
-	if _, err := tempFile.Write(jsonData); err != nil {
+	// Clean up temporary file on error
+	defer func() {
 		tempFile.Close()
-		os.Remove(tempFilePath)
-		return fmt.Errorf("failed to write to temporary file: %w", err)
+		os.Remove(tempFilePath) // Best effort, ignore error
+	}()
+
+	// Set secure file permissions
+	if err := os.Chmod(tempFilePath, defaultFileMode); err != nil {
+		return fmt.Errorf("failed to set file permissions: %w", err)
 	}
 
-	// Close the temporary file
+	// Encode tasks to the temporary file
+	encoder := json.NewEncoder(tempFile)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(tasks); err != nil {
+		return fmt.Errorf("failed to encode tasks: %w", err)
+	}
+
+	// Flush to ensure data is written to disk
+	if err := tempFile.Sync(); err != nil {
+		return fmt.Errorf("failed to sync file: %w", err)
+	}
+
+	// Close the file before renaming
 	if err := tempFile.Close(); err != nil {
-		os.Remove(tempFilePath)
 		return fmt.Errorf("failed to close temporary file: %w", err)
 	}
 
-	// Rename the temporary file to the actual file
+	// Atomically replace the old file with the new one
 	if err := os.Rename(tempFilePath, s.tasksFilePath); err != nil {
-		os.Remove(tempFilePath)
-		return fmt.Errorf("failed to rename temporary file: %w", err)
+		return fmt.Errorf("failed to save tasks file: %w", err)
 	}
 
 	return nil
 }
 
-// copyTask creates a deep copy of a task to prevent external modification.
+// copyTask creates a deep copy of a task.
 func copyTask(sourceTask *models.Task) *models.Task {
-	if sourceTask == nil {
-		return nil
-	}
-	return &models.Task{
+	task := &models.Task{
 		ID:          sourceTask.ID,
 		Description: sourceTask.Description,
 		Completed:   sourceTask.Completed,
 		CreatedAt:   sourceTask.CreatedAt,
 		UpdatedAt:   sourceTask.UpdatedAt,
-		DueDate:     sourceTask.DueDate,
 		Priority:    sourceTask.Priority,
+		Progress:    sourceTask.Progress,
+		Tags:        make([]string, len(sourceTask.Tags)),
 	}
+
+	// Copy due date if exists
+	if sourceTask.DueDate != nil {
+		dueDate := *sourceTask.DueDate
+		task.DueDate = &dueDate
+	}
+
+	// Copy tags
+	copy(task.Tags, sourceTask.Tags)
+
+	return task
 }
