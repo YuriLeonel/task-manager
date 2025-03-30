@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"io"
-	"os"
 	"strings"
 	"testing"
 
@@ -71,72 +69,6 @@ func (m *CLIMockStorage) ListBackups(ctx context.Context) ([]string, error) {
 
 func (m *CLIMockStorage) DeleteBackup(ctx context.Context, backupID string) error {
 	return nil
-}
-
-// captureOutput captures stdout and stderr during test execution
-func captureOutput(f func()) string {
-	oldStdout := os.Stdout
-	oldStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	os.Stderr = w
-
-	outC := make(chan string)
-	go func() {
-		var buf bytes.Buffer
-		io.Copy(&buf, r)
-		outC <- buf.String()
-	}()
-
-	f()
-
-	w.Close()
-	os.Stdout = oldStdout
-	os.Stderr = oldStderr
-
-	return <-outC
-}
-
-// mockStdin simulates user input during tests
-type mockStdin struct {
-	*bytes.Buffer
-}
-
-func newMockStdin(input string) *os.File {
-	r, w, _ := os.Pipe()
-	go func() {
-		w.Write([]byte(input))
-		w.Close()
-	}()
-	return r
-}
-
-// mockInput simulates user input
-type mockInput struct {
-	input string
-}
-
-func (m *mockInput) Read(p []byte) (n int, err error) {
-	if m.input == "" {
-		return 0, io.EOF
-	}
-	n = copy(p, m.input)
-	m.input = m.input[n:]
-	return n, nil
-}
-
-type mockReader struct {
-	inputs []string
-	index  int
-}
-
-func (m *mockReader) ReadString(delim byte) (string, error) {
-	if m.index >= len(m.inputs) {
-		return "", nil
-	}
-	input := m.inputs[m.index]
-	m.index++
-	return input + "\n", nil
 }
 
 func TestCLI(t *testing.T) {
