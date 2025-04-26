@@ -19,6 +19,8 @@ A secure command-line task manager written in Go that helps you manage your task
 - 💾 Multiple storage backends (JSON file, in-memory)
 - 🔄 Automatic backups with configurable interval and directory
 - 🛡️ Secure storage with proper error handling and permissions
+- 🔄 Graceful shutdown handling for both CLI exit and system signals
+- ⏱️ Configurable shutdown timeout for clean component termination
 
 ## Getting Started
 
@@ -73,6 +75,8 @@ Options:
         Maximum number of tasks allowed (default 10000)
   -storage string
         Storage type: 'json' or 'memory' (default "json")
+  -shutdown-timeout duration
+        Timeout for graceful shutdown (default 5s)
   -version
         Show version information
 
@@ -81,6 +85,7 @@ Examples:
   task-manager --storage memory --max-tasks 100
   task-manager --backup-interval 30m --max-backups 10
   task-manager --backup-dir ~/.task-backups
+  task-manager --shutdown-timeout 10s
 ```
 
 ### Interactive Interface
@@ -101,6 +106,18 @@ Task Manager Menu:
 10. List tasks by tag
 11. Exit
 ```
+
+The program can be exited in two ways:
+
+1. Choose option 11 (Exit) from the menu
+2. Press Ctrl+C to send an interrupt signal
+
+Both methods trigger a graceful shutdown sequence that:
+
+- Saves any pending changes
+- Creates a final backup
+- Stops all background processes
+- Closes all resources properly
 
 ### Backup System
 
@@ -128,7 +145,10 @@ task-manager/
 │   ├── storage/           # Storage implementations
 │   │   ├── backup/       # Backup management system
 │   │   └── ...          # Other storage implementations
-│   └── task/             # Task management business logic
+│   ├── task/             # Task management business logic
+│   ├── communication/    # Communication system
+│   ├── logger/           # Logging system
+│   └── config/           # Configuration management
 ├── pkg/                   # Library code that can be used by external applications
 │   └── models/           # Data models
 ├── go.mod                # Go module definition
@@ -148,6 +168,9 @@ The Task Manager follows a clean architecture with clear separation of concerns:
 3. **Service** (`internal/task`): Business logic layer
 4. **CLI** (`internal/task`): Presentation layer
 5. **Main** (`cmd/task-manager`): Application entry point and configuration
+6. **Communication** (`internal/communication`): Event handling and notifications
+7. **Logger** (`internal/logger`): Structured logging system
+8. **Config** (`internal/config`): Configuration management
 
 ## Security Features
 
@@ -160,6 +183,7 @@ The Task Manager follows a clean architecture with clear separation of concerns:
 - Secure temporary file handling
 - Data integrity checks
 - Secure backup management
+- Graceful shutdown handling
 
 ## Contributing
 
